@@ -260,15 +260,16 @@
       
       document.getElementById('dateSelect').valueAsDate = new Date();
 
-      window.onload = () => {
-        if (currentSelectedLop) {
-          document.getElementById('titleLop').innerText = "- LỚP " + currentSelectedLop.toUpperCase();
-          window.loadHomepageTable();
-        } else {
-          document.getElementById('table-body').innerHTML = `<tr><td colspan="4" class="text-danger fw-bold p-4">Đường link không đầy đủ! Vui lòng truy cập qua link có chứa mã lớp (Ví dụ: ...?lop=10A).</td></tr>`;
-        }
-      };
+      function initApp() {
+  if (currentSelectedLop) {
+    document.getElementById('titleLop').innerText = "- LỚP " + currentSelectedLop.toUpperCase();
+    window.loadHomepageTable();
+  } else {
+    document.getElementById('table-body').innerHTML = `<tr><td colspan="4" class="text-danger fw-bold p-4">Đường link không đầy đủ! Vui lòng truy cập qua link có chứa mã lớp (Ví dụ: ...?lop=VATLI10_LI1).</td></tr>`;
+  }
+}
 
+initApp();
       // Các hàm hỗ trợ
       function locDauTiengViet(str) {
         if (!str) return "";
