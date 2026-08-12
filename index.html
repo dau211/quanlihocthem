@@ -70,14 +70,15 @@
         </div>
       </div>
 
-      <!-- ADMIN LOGIN -->
+      <!-- ADMIN LOGIN BẢO MẬT FIREBASE -->
       <div id="adminAuthView">
         <div class="card mt-5 mx-auto" style="max-width: 400px;">
           <div class="card-body p-4 text-center">
-            <h4 class="mb-4 text-primary">Quản Trị Viên</h4>
-            <input type="password" id="adminPwdInput" class="form-control mb-3" placeholder="Nhập mật khẩu">
-            <button class="btn btn-primary w-100 fw-bold" onclick="window.loginAdmin()">Đăng Nhập</button>
-            <button class="btn btn-link mt-2 text-secondary" onclick="window.switchView('listView')">Hủy</button>
+            <h4 class="mb-4 text-primary fw-bold">ĐĂNG NHẬP ADMIN</h4>
+            <input type="email" id="adminEmailInput" class="form-control mb-3" placeholder="Email đăng nhập">
+            <input type="password" id="adminPwdInput" class="form-control mb-3" placeholder="Mật khẩu">
+            <button class="btn btn-primary w-100 fw-bold shadow-sm" id="btnLogin" onclick="window.loginAdmin()">Đăng Nhập Cổng Quản Trị</button>
+            <button class="btn btn-link mt-2 text-secondary" onclick="window.switchView('listView')">Quay lại</button>
           </div>
         </div>
       </div>
@@ -88,18 +89,18 @@
           <div class="card-body p-3">
             <div class="d-flex justify-content-between align-items-center mb-3">
               <h4 class="text-primary fw-bold m-0">ADMIN DASHBOARD</h4>
-              <button class="btn btn-sm btn-outline-danger" onclick="window.logoutAdmin()">Thoát</button>
+              <button class="btn btn-sm btn-outline-danger fw-bold" onclick="window.logoutAdmin()">Đăng Xuất</button>
             </div>
             
             <div class="mb-4 p-3 bg-light border rounded shadow-sm d-flex align-items-center gap-2">
               <span class="fw-bold text-nowrap">Chọn Lớp:</span>
               <select id="lopSelectAdmin" class="form-select border-primary" onchange="window.fetchAdminData()">
                 <option value="">-- Chọn Lớp --</option>
-               <option value="VATLI10_LI1">Lớp Vật lí 10 (Lí 1)</option>
- <option value="VATLI10_LI2">Lớp Vật lí 10 (Lí 2)</option>
- <option value="VATLI11_LI1">Lớp Vật lí 11 (Lí 1)</option>
- <option value="VATLI12_LI1">Lớp Vật lí 12 (Lí 1)</option>
- <option value="VATLI12_LI2">Lớp Vật lí 12 (Lí 2)</option>
+                <option value="VATLI10_LI1">Lớp Vật lí 10 (Lí 1)</option>
+                <option value="VATLI10_LI2">Lớp Vật lí 10 (Lí 2)</option>
+                <option value="VATLI11_LI1">Lớp Vật lí 11 (Lí 1)</option>
+                <option value="VATLI12_LI1">Lớp Vật lí 12 (Lí 1)</option>
+                <option value="VATLI12_LI2">Lớp Vật lí 12 (Lí 2)</option>
               </select>
             </div>
             
@@ -228,6 +229,8 @@
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
       import { getFirestore, collection, doc, setDoc, getDocs, getDoc, query, where, writeBatch } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+      // THÊM THƯ VIỆN ĐĂNG NHẬP FIREBASE
+      import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
       // ==========================================
       // CẤU HÌNH FIREBASE CỦA THẦY
@@ -244,32 +247,21 @@
 
       const app = initializeApp(firebaseConfig);
       const db = getFirestore(app);
+      const auth = getAuth(app); // KHỞI TẠO BỘ CHÌA KHÓA AUTH
 
       // ==========================================
       // CẤU HÌNH THÔNG SỐ CƠ BẢN
       // ==========================================
       const TEN_CHU_TAI_KHOAN = "DAU NAM THANH"; 
-      const ADMIN_PASSWORD = "16121980"; 
       const GIA_MOT_BUOI = 43750;
 
       const urlParams = new URLSearchParams(window.location.search);
       let currentSelectedLop = urlParams.get('lop');
-      let adminPwd = ""; 
       let allStudentsData = []; 
       let isEditMode = false; 
       
       document.getElementById('dateSelect').valueAsDate = new Date();
 
-      function initApp() {
-  if (currentSelectedLop) {
-    document.getElementById('titleLop').innerText = "- LỚP " + currentSelectedLop.toUpperCase();
-    window.loadHomepageTable();
-  } else {
-    document.getElementById('table-body').innerHTML = `<tr><td colspan="4" class="text-danger fw-bold p-4">Đường link không đầy đủ! Vui lòng truy cập qua link có chứa mã lớp (Ví dụ: ...?lop=VATLI10_LI1).</td></tr>`;
-  }
-}
-
-initApp();
       // Các hàm hỗ trợ
       function locDauTiengViet(str) {
         if (!str) return "";
@@ -290,6 +282,33 @@ initApp();
         ['listView', 'paymentView', 'adminAuthView', 'adminDashboardView'].forEach(v => document.getElementById(v).style.display = 'none');
         document.getElementById(id).style.display = 'block';
       };
+
+      // ==========================================
+      // ĐĂNG NHẬP & ĐĂNG XUẤT (FIREBASE AUTH)
+      // ==========================================
+      window.loginAdmin = async function() {
+        const email = document.getElementById('adminEmailInput').value.trim();
+        const pwd = document.getElementById('adminPwdInput').value;
+        if (!email || !pwd) return alert("Vui lòng nhập Email và Mật khẩu!");
+        
+        const btn = document.getElementById('btnLogin');
+        btn.disabled = true; btn.innerText = "Đang kiểm tra bảo mật...";
+        
+        try {
+          // Bắt đầu gọi lên Google để check mật khẩu
+          await signInWithEmailAndPassword(auth, email, pwd);
+          window.switchView('adminDashboardView');
+        } catch(error) {
+          alert("Tài khoản hoặc mật khẩu không chính xác!");
+        } finally {
+          btn.disabled = false; btn.innerText = "Đăng Nhập Cổng Quản Trị";
+        }
+      }
+      
+      window.logoutAdmin = async function() { 
+        await signOut(auth); // Hủy token bảo mật
+        window.switchView('listView'); 
+      }
 
       // ==========================================
       // PHỤ HUYNH - LOAD DANH SÁCH 
@@ -332,7 +351,7 @@ initApp();
               </tr>`;
           });
         } catch(e) {
-          body.innerHTML = `<tr><td colspan="4" class="text-danger p-4">Lỗi kết nối CSDL: Kiểm tra lại Database Firestore đã được tạo và cấp quyền đọc ghi (Test mode) chưa. Chi tiết: ${e.message}</td></tr>`;
+          body.innerHTML = `<tr><td colspan="4" class="text-danger p-4">Lỗi tải dữ liệu: ${e.message}</td></tr>`;
         }
       };
 
@@ -414,16 +433,8 @@ initApp();
       };
 
       // ==========================================
-      // ADMIN XỬ LÝ DỮ LIỆU
+      // ADMIN TẢI VÀ HIỂN THỊ DỮ LIỆU
       // ==========================================
-      window.loginAdmin = function() {
-        const pwd = document.getElementById('adminPwdInput').value;
-        if (pwd === ADMIN_PASSWORD) { adminPwd = pwd; window.switchView('adminDashboardView'); } 
-        else alert("Sai mật khẩu!");
-      }
-      
-      window.logoutAdmin = function() { adminPwd = ""; window.switchView('listView'); }
-
       window.fetchAdminData = async function() {
         const adminLopId = document.getElementById('lopSelectAdmin').value;
         if (!adminLopId) return;
@@ -455,7 +466,9 @@ initApp();
           window.renderHoSoTable();
           window.renderAttendanceTable();
           window.renderPaymentTable();
-        } catch(e) { alert("Lỗi tải data Admin: Vui lòng kiểm tra đã tạo Database Firestore chưa. " + e.message); }
+        } catch(e) { 
+          alert("Lỗi bảo mật hoặc tải data: Vui lòng đăng nhập lại Admin. " + e.message); 
+        }
       }
 
       window.renderHoSoTable = function() {
@@ -471,7 +484,6 @@ initApp();
         });
       }
 
-      // THÊM SỬA 1 HS
       window.openAddModal = function() {
         if(!currentSelectedLop) return alert("Chọn Lớp trước!");
         isEditMode = false; document.getElementById('hsForm').reset();
@@ -510,7 +522,7 @@ initApp();
           bootstrap.Modal.getInstance(document.getElementById('hsModal')).hide();
           window.showToast("Đã lưu học sinh thành công!");
           window.fetchAdminData();
-        } catch(e) { alert(e.message); }
+        } catch(e) { alert("Lỗi phân quyền bảo mật: " + e.message); }
       }
 
       // TÍNH NĂNG NHẬP HÀNG LOẠT (IMPORT)
@@ -529,15 +541,14 @@ initApp();
         let count = 0;
 
         for(let r of rows) {
-          let cols = r.split('\t'); // Tự động tách cột khi copy từ Excel
+          let cols = r.split('\t'); 
           if(cols.length >= 2) {
             let maHS = cols[0].toString().toUpperCase().trim();
             let hoTen = cols[1].trim();
             
             if(maHS && hoTen) {
               let hsDoc = {
-                maHS: maHS,
-                hoTen: hoTen,
+                maHS: maHS, hoTen: hoTen,
                 lop: cols[2] ? cols[2].trim() : '',
                 stk: cols[3] ? cols[3].trim() : '',
                 nganHang: cols[4] ? cols[4].trim() : '',
@@ -550,14 +561,12 @@ initApp();
           }
         }
 
-        if(count === 0) return alert("Không nhận diện được dòng nào hợp lệ. Đảm bảo copy đúng cấu trúc từ Excel (ít nhất có Mã HS và Họ Tên).");
+        if(count === 0) return alert("Không nhận diện được dòng nào hợp lệ.");
 
         try {
           const btn = document.getElementById('btnImport');
           btn.disabled = true; btn.innerText = "Đang tải lên...";
-          
           await batch.commit();
-          
           window.showToast(`Đã nhập thành công ${count} học sinh!`);
           bootstrap.Modal.getInstance(document.getElementById('importModal')).hide();
           window.fetchAdminData();
@@ -684,7 +693,7 @@ initApp();
           window.showToast("Đã gạch nợ thành công!");
           window.fetchAdminData();
         } catch(e) { 
-          alert("Lỗi: " + e.message); 
+          alert("Lỗi bảo mật: " + e.message); 
           el.disabled = false; el.value = 'chưa nộp'; 
         }
       }
@@ -697,6 +706,18 @@ initApp();
             document.body.appendChild(a); a.click(); document.body.removeChild(a);
         }).catch(err => alert("Vui lòng nhấn giữ vào ảnh QR để Lưu."));
       }
+
+      // Gọi khởi tạo dữ liệu
+      function initApp() {
+        if (currentSelectedLop) {
+          document.getElementById('titleLop').innerText = "- LỚP " + currentSelectedLop.toUpperCase();
+          window.loadHomepageTable();
+        } else {
+          document.getElementById('table-body').innerHTML = `<tr><td colspan="4" class="text-danger fw-bold p-4">Đường link không đầy đủ! Vui lòng truy cập qua link có chứa mã lớp (Ví dụ: ...?lop=VATLI10_LI1).</td></tr>`;
+        }
+      }
+      initApp();
+
     </script>
   </body>
 </html>
