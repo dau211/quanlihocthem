@@ -225,11 +225,13 @@
       </div>
     </div>
 
+    <!-- THƯ VIỆN BOOTSTRAP JS BẮT BUỘC ĐỂ MỞ MODAL -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
     <!-- KHỞI TẠO FIREBASE SDK VÀ LOGIC XỬ LÝ -->
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
       import { getFirestore, collection, doc, setDoc, getDocs, getDoc, query, where, writeBatch } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-      // THÊM THƯ VIỆN ĐĂNG NHẬP FIREBASE
       import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
       // ==========================================
@@ -247,7 +249,7 @@
 
       const app = initializeApp(firebaseConfig);
       const db = getFirestore(app);
-      const auth = getAuth(app); // KHỞI TẠO BỘ CHÌA KHÓA AUTH
+      const auth = getAuth(app);
 
       // ==========================================
       // CẤU HÌNH THÔNG SỐ CƠ BẢN
@@ -295,7 +297,6 @@
         btn.disabled = true; btn.innerText = "Đang kiểm tra bảo mật...";
         
         try {
-          // Bắt đầu gọi lên Google để check mật khẩu
           await signInWithEmailAndPassword(auth, email, pwd);
           window.switchView('adminDashboardView');
         } catch(error) {
@@ -306,7 +307,7 @@
       }
       
       window.logoutAdmin = async function() { 
-        await signOut(auth); // Hủy token bảo mật
+        await signOut(auth); 
         window.switchView('listView'); 
       }
 
