@@ -259,9 +259,11 @@
       const auth = getAuth(app);
 
       // ==========================================
-      // CẤU HÌNH THÔNG SỐ CƠ BẢN
+      // CẤU HÌNH THÔNG SỐ CƠ BẢN CỦA GIÁO VIÊN
       // ==========================================
       const TEN_CHU_TAI_KHOAN = "DAU NAM THANH"; 
+      const SO_TAI_KHOAN_GIAO_VIEN = "9942814467"; // <--- THẦY GÕ SỐ TÀI KHOẢN CỦA THẦY VÀO ĐÂY NHÉ
+      const NGAN_HANG_GIAO_VIEN = "Vietcombank";       // <--- THẦY GÕ TÊN NGÂN HÀNG CỦA THẦY VÀO ĐÂY (VD: Vietcombank, MBBank...)
       const GIA_MOT_BUOI = 43750;
 
       const urlParams = new URLSearchParams(window.location.search);
@@ -415,14 +417,17 @@
           let thangGop = thangThuArr.join(' ').replace(/Tháng /gi, 'T'); 
           let noiDungCKRaw = `${maHS} ${hsData.hoTen} ${thangGop}`;
           let noiDungCK = locDauTiengViet(noiDungCKRaw);
-          let bankBin = getBankBin(hsData.nganHang);
-          let qrUrl = `https://img.vietqr.io/image/${bankBin}-${hsData.stk || ''}-compact2.png?amount=${tongTien}&addInfo=${encodeURIComponent(noiDungCK)}&accountName=${encodeURIComponent(TEN_CHU_TAI_KHOAN)}`;
+          
+          // LẤY STK CỦA THẦY ĐỂ TẠO MÃ QR (Đã fix lỗi lấy STK của học sinh)
+          let bankBin = getBankBin(NGAN_HANG_GIAO_VIEN);
+          let qrUrl = `https://img.vietqr.io/image/${bankBin}-${SO_TAI_KHOAN_GIAO_VIEN}-compact2.png?amount=${tongTien}&addInfo=${encodeURIComponent(noiDungCK)}&accountName=${encodeURIComponent(TEN_CHU_TAI_KHOAN)}`;
 
           let info = `
-            <div class="info-row"><span>🎓 Họ và tên:</span><span class="fs-5 text-uppercase">${hsData.hoTen}</span></div>
+            <div class="info-row"><span>🎓 Học sinh:</span><span class="fs-5 text-uppercase">${hsData.hoTen}</span></div>
             <div class="info-row"><span>🏠 Lớp:</span><span>${hsData.lop || 'Trống'}</span></div>
-            <div class="info-row"><span>🏦 Ngân hàng nhận:</span><span>${hsData.nganHang || 'Trống'}</span></div>
-            <div class="info-row"><span>💳 STK nhận:</span><span class="text-primary fs-5">${hsData.stk || 'Trống'}</span></div>
+            <div class="info-row"><span>🏦 Ngân hàng nhận:</span><span class="fw-bold">${NGAN_HANG_GIAO_VIEN}</span></div>
+            <div class="info-row"><span>💳 STK nhận:</span><span class="text-primary fs-5 fw-bold">${SO_TAI_KHOAN_GIAO_VIEN}</span></div>
+            <div class="info-row"><span>👤 Tên người nhận:</span><span class="fw-bold">${TEN_CHU_TAI_KHOAN}</span></div>
             <div class="info-row bg-white rounded p-2 mt-2 border border-info shadow-sm">
               <span class="text-dark">Nội dung CK:</span><span class="text-danger font-monospace fs-5">${noiDungCK}</span>
             </div>
@@ -471,18 +476,6 @@
           });
 
           window.renderHoSoTable();
-window.deleteStudent = async function(maHS) {
-        // Hiện bảng cảnh báo trước khi xóa thật
-        if(confirm(`Thầy có chắc chắn muốn XÓA VĨNH VIỄN học sinh mã ${maHS} không? Toàn bộ dữ liệu sẽ không thể khôi phục!`)) {
-          try {
-            await deleteDoc(doc(db, `HOSO_${currentSelectedLop}`, maHS));
-            window.showToast("Đã xóa học sinh thành công!");
-            window.fetchAdminData(); // Tải lại bảng ngay lập tức
-          } catch(e) {
-            alert("Lỗi khi xóa: " + e.message);
-          }
-        }
-      }
           window.renderAttendanceTable();
           window.renderPaymentTable();
         } catch(e) { 
@@ -505,6 +498,18 @@ window.deleteStudent = async function(maHS) {
               </td>
             </tr>`;
         });
+      }
+
+      window.deleteStudent = async function(maHS) {
+        if(confirm(`Thầy có chắc chắn muốn XÓA VĨNH VIỄN học sinh mã ${maHS} không? Toàn bộ dữ liệu sẽ không thể khôi phục!`)) {
+          try {
+            await deleteDoc(doc(db, `HOSO_${currentSelectedLop}`, maHS));
+            window.showToast("Đã xóa học sinh thành công!");
+            window.fetchAdminData(); 
+          } catch(e) {
+            alert("Lỗi khi xóa: " + e.message);
+          }
+        }
       }
 
       window.openAddModal = function() {
@@ -539,11 +544,8 @@ window.deleteStudent = async function(maHS) {
         if(!maHS || !hoTen) return alert("Điền đủ Mã HS và Tên!");
         
         let hsDoc = {
-          maHS: maHS, 
-          hoTen: hoTen, 
-          lop: document.getElementById('hsLop').value,
-          stk: document.getElementById('hsStk').value, 
-          nganHang: document.getElementById('hsNganHang').value,
+          maHS: maHS, hoTen: hoTen, lop: document.getElementById('hsLop').value,
+          stk: document.getElementById('hsStk').value, nganHang: document.getElementById('hsNganHang').value,
           trangThaiHoc: document.getElementById('hsTrangThai').value
         };
 
