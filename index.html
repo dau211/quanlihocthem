@@ -409,7 +409,7 @@
 
           let historyHTML = '';
           if(chiTietBuoi.length > 0) {
-            historyHTML = `<div class="mt-3 pt-3 border-top"><p class="mb-2 fw-bold text-secondary" style="font-size:0.95rem">🗓️ Lịch sử điểm danh (Các tháng tính phí):</p><div class="d-flex flex-wrap gap-2">`;
+            historyHTML = `<div class="mt-3 pt-3 border-top"><p class="mb-2 fw-bold text-secondary" style="font-size:0.95rem">🗓️ Lịch sử điểm danh:</p><div class="d-flex flex-wrap gap-2">`;
             chiTietBuoi.forEach(b => {
                historyHTML += `<span class="border border-secondary-subtle rounded px-2 py-1" style="font-size:0.85rem; background:#fff">📅 ${b.ngay}: <span class="att-badge att-${b.status}">${b.status}</span></span>`;
             });
