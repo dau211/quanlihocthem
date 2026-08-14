@@ -789,36 +789,73 @@
       }
 
       // ==========================================
-      // XUẤT DANH SÁCH CÔNG NỢ RA EXCEL (CSV)
+      // XUẤT DANH SÁCH CÔNG NỢ RA EXCEL (CÓ KẺ BẢNG RÕ RÀNG)
       // ==========================================
       window.exportFeeList = function() {
         if (!currentSelectedLop) return alert("Vui lòng chọn lớp!");
         
-        // Bổ sung thêm các cột: Lớp, Số TK, Ngân hàng
-        let csvContent = "\uFEFFSTT,Mã HS,Họ Tên,Lớp,Số TK,Ngân hàng,Nợ các tháng,Tổng Nợ (VNĐ)\n";
         let count = 0;
+        let trBody = '';
         
         allStudentsData.forEach(hs => {
           if (hs.tienNo > 0 && hs.trangThaiHoc !== 'Nghỉ học') {
             count++;
-            // Xóa dấu phẩy để tránh lỗi định dạng CSV nếu có
-            let ten = hs.hoTen.replace(/,/g, '');
-            let lop = (hs.lop || '').replace(/,/g, '');
-            let stk = (hs.stk || '').replace(/,/g, '');
-            let nganHang = (hs.nganHang || '').replace(/,/g, '');
-            let thang = hs.dsNo.join(' + ').replace(/,/g, '');
+            let ten = hs.hoTen || '';
+            let lop = hs.lop || '';
+            let stk = hs.stk || '';
+            let nganHang = hs.nganHang || '';
+            let thang = hs.dsNo.join(' + ');
             
-            csvContent += `"${count}","${hs.maHS}","${ten}","${lop}","${stk}","${nganHang}","${thang}","${hs.tienNo}"\n`;
+            // Xây dựng các dòng dữ liệu (mso-number-format:'\@'; giúp giữ nguyên số 0 ở đầu của Số tài khoản)
+            trBody += `
+              <tr>
+                <td>${count}</td>
+                <td style="mso-number-format:'\\@';">${hs.maHS}</td>
+                <td style="text-align: left;">${ten}</td>
+                <td>${lop}</td>
+                <td style="mso-number-format:'\\@';">${stk}</td>
+                <td>${nganHang}</td>
+                <td>${thang}</td>
+                <td style="font-weight: bold; color: red;">${hs.tienNo}</td>
+              </tr>
+            `;
           }
         });
 
         if (count === 0) return alert("Không có học sinh nào nợ tiền để tải về!");
 
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        // Nhúng toàn bộ vào một bảng HTML tiêu chuẩn có thuộc tính kẻ viền (border="1")
+        let htmlTable = `
+          <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+          <head><meta charset="utf-8"></head>
+          <body>
+            <table border="1" style="border-collapse: collapse; text-align: center; font-family: Arial, sans-serif;">
+              <thead>
+                <tr style="background-color: #0d6efd; color: white; font-weight: bold; height: 30px;">
+                  <th>STT</th>
+                  <th>Mã HS</th>
+                  <th>Họ Tên</th>
+                  <th>Lớp</th>
+                  <th>Số TK</th>
+                  <th>Ngân hàng</th>
+                  <th>Nợ các tháng</th>
+                  <th>Tổng Nợ (VNĐ)</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${trBody}
+              </tbody>
+            </table>
+          </body>
+          </html>
+        `;
+
+        // Tải xuống dưới dạng file .xls
+        const blob = new Blob(['\uFEFF' + htmlTable], { type: 'application/vnd.ms-excel;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.setAttribute("href", url);
-        link.setAttribute("download", `DanhSachThuTien_${currentSelectedLop}.csv`);
+        link.setAttribute("download", `DanhSachThuTien_${currentSelectedLop}.xls`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
