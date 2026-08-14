@@ -262,8 +262,8 @@
       // CẤU HÌNH THÔNG SỐ CƠ BẢN CỦA GIÁO VIÊN
       // ==========================================
       const TEN_CHU_TAI_KHOAN = "DAU NAM THANH"; 
-      const SO_TAI_KHOAN_GIAO_VIEN = "9942814467"; // <--- THẦY GÕ SỐ TÀI KHOẢN CỦA THẦY VÀO ĐÂY NHÉ
-      const NGAN_HANG_GIAO_VIEN = "Vietcombank";       // <--- THẦY GÕ TÊN NGÂN HÀNG CỦA THẦY VÀO ĐÂY (VD: Vietcombank, MBBank...)
+      const SO_TAI_KHOAN_GIAO_VIEN = "9942814467"; // <--- THẦY GÕ SỐ TÀI KHOẢN CỦA THẦY VÀO ĐÂY
+      const NGAN_HANG_GIAO_VIEN = "Vietcombank";       // <--- THẦY GÕ TÊN NGÂN HÀNG CỦA THẦY VÀO ĐÂY
       const GIA_MOT_BUOI = 43750;
 
       const urlParams = new URLSearchParams(window.location.search);
@@ -418,7 +418,6 @@
           let noiDungCKRaw = `${maHS} ${hsData.hoTen} ${thangGop}`;
           let noiDungCK = locDauTiengViet(noiDungCKRaw);
           
-          // LẤY STK CỦA THẦY ĐỂ TẠO MÃ QR (Đã fix lỗi lấy STK của học sinh)
           let bankBin = getBankBin(NGAN_HANG_GIAO_VIEN);
           let qrUrl = `https://img.vietqr.io/image/${bankBin}-${SO_TAI_KHOAN_GIAO_VIEN}-compact2.png?amount=${tongTien}&addInfo=${encodeURIComponent(noiDungCK)}&accountName=${encodeURIComponent(TEN_CHU_TAI_KHOAN)}`;
 
@@ -458,7 +457,6 @@
 
         try {
           const snapHS = await getDocs(collection(db, `HOSO_${currentSelectedLop}`));
-          // Cập nhật để Admin vẫn nhìn thấy học sinh đã nghỉ học (hiển thị trạng thái rõ ràng)
           snapHS.forEach(doc => {
             let r = doc.data();
             allStudentsData.push({ ...r, tienNo: 0, dsNo: [] });
@@ -476,7 +474,7 @@
           });
 
           window.renderHoSoTable();
-          window.renderAttendanceTable();
+          window.renderAttendanceTable(); // Sẽ chạy ngầm lấy dữ liệu của ngày đang chọn trên lịch
           window.renderPaymentTable();
         } catch(e) { 
           alert("Lỗi bảo mật hoặc tải data: Vui lòng đăng nhập lại Admin. " + e.message); 
@@ -615,30 +613,66 @@
         }
       }
 
-      // ĐIỂM DANH LỌC NGHỈ HỌC
-      window.renderAttendanceTable = function() {
-        const tbody = document.getElementById('admin-attendance-tbody'); tbody.innerHTML = '';
+      // ==========================================
+      // TÍNH NĂNG ĐIỂM DANH (CÓ TỰ ĐỘNG TẢI LẠI DỮ LIỆU CŨ)
+      // ==========================================
+      window.renderAttendanceTable = async function() {
+        const dateVal = document.getElementById('dateSelect').value;
+        if(!dateVal) return; // Nếu chưa chọn ngày thì không làm gì cả
+        
+        const tbody = document.getElementById('admin-attendance-tbody');
+        tbody.innerHTML = '<tr><td colspan="3"><div class="spinner-border spinner-border-sm text-info"></div> Đang kiểm tra dữ liệu điểm danh...</td></tr>';
+        
+        // Chuyển đổi định dạng ngày YYYY-MM-DD sang DD/MM/YYYY để truy vấn
+        let p = dateVal.split('-');
+        let dateStr = `${p[2]}/${p[1]}/${p[0]}`;
+
+        let attendanceMap = {}; // Lưu trữ trạng thái điểm danh đã có (nếu có)
+        try {
+          // Hỏi Firebase xem ngày này đã từng điểm danh chưa
+          const qDD = query(collection(db, `DIEMDANH_${currentSelectedLop}`), where("ngay", "==", dateStr));
+          const snapDD = await getDocs(qDD);
+          snapDD.forEach(doc => {
+            let r = doc.data();
+            attendanceMap[r.maHS] = r.status; // Lưu lại trạng thái X, P hoặc K
+          });
+        } catch (e) {
+          console.error("Lỗi lấy dữ liệu điểm danh cũ:", e);
+        }
+
+        tbody.innerHTML = '';
         let count = 0;
+        
         allStudentsData.forEach(hs => {
           if (hs.trangThaiHoc !== 'Nghỉ học') {
             count++;
+            // Nếu có dữ liệu cũ thì lấy, nếu không mặc định là 'X'
+            let stt = attendanceMap[hs.maHS] || 'X'; 
+            
+            let checkX = stt === 'X' ? 'checked' : '';
+            let checkP = stt === 'P' ? 'checked' : '';
+            let checkK = stt === 'K' ? 'checked' : '';
+
             tbody.innerHTML += `
               <tr>
                 <td class="fw-bold">${hs.maHS}</td><td class="text-start">${hs.hoTen}</td>
                 <td>
                   <div class="btn-group">
-                    <input type="radio" class="btn-check" name="a_${hs.maHS}" id="X_${hs.maHS}" value="X" checked>
+                    <input type="radio" class="btn-check" name="a_${hs.maHS}" id="X_${hs.maHS}" value="X" ${checkX}>
                     <label class="btn btn-outline-success btn-sm" for="X_${hs.maHS}">X</label>
-                    <input type="radio" class="btn-check" name="a_${hs.maHS}" id="P_${hs.maHS}" value="P">
+                    <input type="radio" class="btn-check" name="a_${hs.maHS}" id="P_${hs.maHS}" value="P" ${checkP}>
                     <label class="btn btn-outline-warning btn-sm" for="P_${hs.maHS}">P</label>
-                    <input type="radio" class="btn-check" name="a_${hs.maHS}" id="K_${hs.maHS}" value="K">
+                    <input type="radio" class="btn-check" name="a_${hs.maHS}" id="K_${hs.maHS}" value="K" ${checkK}>
                     <label class="btn btn-outline-danger btn-sm" for="K_${hs.maHS}">K</label>
                   </div>
                 </td>
               </tr>`;
           }
         });
-        if(count === 0) tbody.innerHTML = `<tr><td colspan="3">Không có học sinh nào đang học để điểm danh.</td></tr>`;
+        
+        if(count === 0) {
+          tbody.innerHTML = `<tr><td colspan="3">Không có học sinh nào đang học để điểm danh.</td></tr>`;
+        }
       }
 
       window.submitAttendance = async function() {
