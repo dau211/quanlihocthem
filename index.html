@@ -165,7 +165,12 @@
                   </div>
                 </div>
 
-                <h6 class="fw-bold">DANH SÁCH CÔNG NỢ (Học sinh chưa nộp)</h6>
+                <!-- ĐÃ BỔ SUNG NÚT XUẤT EXCEL Ở ĐÂY -->
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <h6 class="fw-bold m-0">DANH SÁCH CÔNG NỢ (Học sinh chưa nộp)</h6>
+                  <button class="btn btn-sm btn-success fw-bold shadow-sm" onclick="window.exportFeeList()">📥 Xuất File Excel</button>
+                </div>
+                
                 <div class="table-responsive">
                   <table class="table table-bordered table-hover align-middle text-center">
                     <thead class="table-dark"><tr><th>Mã HS</th><th class="text-start">Họ Tên</th><th>Nợ các tháng</th><th>Tổng Nợ</th><th>Trạng Thái</th></tr></thead>
@@ -474,7 +479,7 @@
           });
 
           window.renderHoSoTable();
-          window.renderAttendanceTable(); // Sẽ chạy ngầm lấy dữ liệu của ngày đang chọn trên lịch
+          window.renderAttendanceTable(); 
           window.renderPaymentTable();
         } catch(e) { 
           alert("Lỗi bảo mật hoặc tải data: Vui lòng đăng nhập lại Admin. " + e.message); 
@@ -614,27 +619,25 @@
       }
 
       // ==========================================
-      // TÍNH NĂNG ĐIỂM DANH (CÓ TỰ ĐỘNG TẢI LẠI DỮ LIỆU CŨ)
+      // TÍNH NĂNG ĐIỂM DANH
       // ==========================================
       window.renderAttendanceTable = async function() {
         const dateVal = document.getElementById('dateSelect').value;
-        if(!dateVal) return; // Nếu chưa chọn ngày thì không làm gì cả
+        if(!dateVal) return; 
         
         const tbody = document.getElementById('admin-attendance-tbody');
         tbody.innerHTML = '<tr><td colspan="3"><div class="spinner-border spinner-border-sm text-info"></div> Đang kiểm tra dữ liệu điểm danh...</td></tr>';
         
-        // Chuyển đổi định dạng ngày YYYY-MM-DD sang DD/MM/YYYY để truy vấn
         let p = dateVal.split('-');
         let dateStr = `${p[2]}/${p[1]}/${p[0]}`;
 
-        let attendanceMap = {}; // Lưu trữ trạng thái điểm danh đã có (nếu có)
+        let attendanceMap = {}; 
         try {
-          // Hỏi Firebase xem ngày này đã từng điểm danh chưa
           const qDD = query(collection(db, `DIEMDANH_${currentSelectedLop}`), where("ngay", "==", dateStr));
           const snapDD = await getDocs(qDD);
           snapDD.forEach(doc => {
             let r = doc.data();
-            attendanceMap[r.maHS] = r.status; // Lưu lại trạng thái X, P hoặc K
+            attendanceMap[r.maHS] = r.status; 
           });
         } catch (e) {
           console.error("Lỗi lấy dữ liệu điểm danh cũ:", e);
@@ -646,7 +649,6 @@
         allStudentsData.forEach(hs => {
           if (hs.trangThaiHoc !== 'Nghỉ học') {
             count++;
-            // Nếu có dữ liệu cũ thì lấy, nếu không mặc định là 'X'
             let stt = attendanceMap[hs.maHS] || 'X'; 
             
             let checkX = stt === 'X' ? 'checked' : '';
@@ -786,6 +788,38 @@
             document.body.appendChild(a); a.click(); document.body.removeChild(a);
         }).catch(err => alert("Vui lòng nhấn giữ vào ảnh QR để Lưu."));
       }
+
+      // ==========================================
+      // XUẤT DANH SÁCH CÔNG NỢ RA EXCEL (CSV)
+      // ==========================================
+      window.exportFeeList = function() {
+        if (!currentSelectedLop) return alert("Vui lòng chọn lớp!");
+        
+        // \uFEFF giúp Excel nhận diện font Tiếng Việt chuẩn UTF-8
+        let csvContent = "\uFEFFSTT,Mã HS,Họ Tên,Nợ các tháng,Tổng Nợ (VNĐ)\n";
+        let count = 0;
+        
+        allStudentsData.forEach(hs => {
+          if (hs.tienNo > 0 && hs.trangThaiHoc !== 'Nghỉ học') {
+            count++;
+            // Xóa dấu phẩy trong tên hoặc chuỗi tháng để tránh lỗi định dạng CSV
+            let ten = hs.hoTen.replace(/,/g, '');
+            let thang = hs.dsNo.join(' + ').replace(/,/g, '');
+            csvContent += `"${count}","${hs.maHS}","${ten}","${thang}","${hs.tienNo}"\n`;
+          }
+        });
+
+        if (count === 0) return alert("Không có học sinh nào nợ tiền để tải về!");
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `DanhSachThuTien_${currentSelectedLop}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      };
 
       // Gọi khởi tạo dữ liệu ở cuối file để đảm bảo tương thích mọi trình duyệt và Hosting
       function initApp() {
