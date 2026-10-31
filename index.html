@@ -35,7 +35,7 @@
     <div class="main-container">
       
       <!-- TRANG CHỦ PHỤ HUYNH -->
-      <div id="listView">
+    <div id="listView">
         <div class="card mt-2">
           <div class="card-body p-3 p-md-4">
             <h4 class="card-title text-center text-primary fw-bold mb-2">DANH SÁCH NỘP TIỀN <span id="titleLop" class="text-danger"></span></h4>
@@ -64,7 +64,7 @@
                 <h6 class="fw-bold text-danger mb-3">QUÉT MÃ QR ĐỂ THANH TOÁN</h6>
                 <img id="qr-code" src="" alt="QR Code" class="img-fluid bg-white p-2 border rounded" style="max-width:300px;">
                 <p class="mt-3 text-muted small fst-italic">Hệ thống đã tự động điền Số tiền và Mã học sinh vào nội dung.</p>
-                <div class="mt-2"><button class="btn btn-primary fw-bold px-4 py-2 shadow" onclick="window.taiMaQRMoi()">⬇ TẢI MÃ QR VỀ MÁY</button></div>
+                <div class="mt-2"><button class="btn btn-primary fw-bold px-4 py-2 shadow" onclick="window.downloadQR()">⬇ TẢI MÃ QR VỀ MÁY</button></div>
               </div>
             </div>
           </div>
@@ -242,98 +242,10 @@
 
     <!-- NỐI VỚI FILE JS ĐÃ TÁCH -->
     <script type="module" src="./app.js"></script>
-    
-    <!-- THƯ VIỆN HỖ TRỢ TẢI FILE SIÊU MẠNH -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
-    <!-- HÀM XỬ LÝ TẢI MÃ QR -->
+    <!-- KHÓA PHÍM TẮT DÒ XÉT MÃ NGUỒN -->
     <script>
-      window.taiMaQRMoi = async function() {
-        const qrImg = document.getElementById('qr-code');
-        if (!qrImg || !qrImg.src) {
-          alert("Lỗi: Không tìm thấy ảnh mã QR để tải!");
-          return;
-        }
-
-        const imgUrl = qrImg.src;
-        const btn = event.target || document.querySelector("button[onclick='window.taiMaQRMoi()']");
-        const originalText = btn ? btn.innerHTML : "⬇ TẢI MÃ QR VỀ MÁY";
-        
-        if (btn) btn.innerHTML = "⏳ Đang xử lý...";
-
-        try {
-          let blob;
-          
-          if (imgUrl.startsWith('data:')) {
-             const response = await fetch(imgUrl);
-             blob = await response.blob();
-          } else {
-             let response;
-             try {
-                response = await fetch(imgUrl, { mode: 'cors' });
-                const contentType = response.headers.get('content-type');
-                if (!response.ok || !contentType || !contentType.includes('image')) {
-                   throw new Error("CORS Direct Failed hoặc không phải ảnh");
-                }
-             } catch (e) {
-                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(imgUrl)}`;
-                response = await fetch(proxyUrl);
-                
-                const contentType = response.headers.get('content-type');
-                if (!response.ok || !contentType || !contentType.includes('image')) {
-                   throw new Error("Proxy cũng không lấy được ảnh chuẩn");
-                }
-             }
-             blob = await response.blob();
-          }
-
-          let extension = 'png';
-          if (blob.type === 'image/jpeg') extension = 'jpg';
-          if (blob.type === 'image/svg+xml') extension = 'svg';
-          
-          const fileName = `Ma_QR_Thanh_Toan.${extension}`;
-
-          if (navigator.share && navigator.canShare && navigator.canShare({ files: [new File([blob], fileName, { type: blob.type })] })) {
-             try {
-                const file = new File([blob], fileName, { type: blob.type });
-                await navigator.share({
-                   files: [file],
-                   title: 'Mã QR Thanh Toán'
-                });
-                if (btn) btn.innerHTML = originalText;
-                return; 
-             } catch (shareError) {
-                console.log("Hủy chia sẻ:", shareError);
-             }
-          }
-
-          window.saveAs(blob, fileName);
-          if (btn) btn.innerHTML = originalText;
-
-        } catch (error) {
-          console.error("Lỗi tự động tải:", error);
-          
-          try {
-             const newTab = window.open();
-             newTab.document.body.innerHTML = `<div style="text-align:center; padding: 20px; font-family:sans-serif;">
-                <h3 style="color: #d9534f;">Trình duyệt khóa tải tự động!</h3>
-                <p><b>👉 Hãy NHẤN GIỮ ngón tay (hoặc click chuột phải) vào ảnh dưới đây và chọn "Lưu hình ảnh"</b></p>
-                <img src="${imgUrl}" style="max-width:100%; border: 1px solid #ccc; padding: 10px; border-radius: 8px;">
-             </div>`;
-          } catch (e) {
-             alert("Trình duyệt chặn mở tab tải ảnh. Bạn vui lòng tự nhấn giữ tay vào mã QR trên màn hình rồi chọn Lưu Hình Ảnh nhé!");
-          }
-          if (btn) btn.innerHTML = originalText;
-        }
-      };
-    </script>
-    
-    <!-- KHÓA PHÍM TẮT TRÊN MÁY TÍNH -->
-    <script>
-      if (!('ontouchstart' in window) && !navigator.maxTouchPoints) {
-          document.addEventListener('contextmenu', event => event.preventDefault());
-      }
-      
+      document.addEventListener('contextmenu', event => event.preventDefault());
       document.onkeydown = function(e) {
         if (e.keyCode == 123) return false;
         if (e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0)) return false;
