@@ -64,7 +64,7 @@
                 <h6 class="fw-bold text-danger mb-3">QUÉT MÃ QR ĐỂ THANH TOÁN</h6>
                 <img id="qr-code" src="" alt="QR Code" class="img-fluid bg-white p-2 border rounded" style="max-width:300px;">
                 <p class="mt-3 text-muted small fst-italic">Hệ thống đã tự động điền Số tiền và Mã học sinh vào nội dung.</p>
-                <div class="mt-2"><button class="btn btn-primary fw-bold px-4 py-2 shadow" onclick="window.downloadQR()">⬇ TẢI MÃ QR VỀ MÁY</button></div>
+                <div class="mt-2"><button class="btn btn-primary fw-bold px-4 py-2 shadow" onclick="window.taiMaQRMoi()">⬇ TẢI MÃ QR VỀ MÁY</button></div>
               </div>
             </div>
           </div>
@@ -243,9 +243,84 @@
     <!-- NỐI VỚI FILE JS ĐÃ TÁCH -->
     <script type="module" src="./app.js"></script>
 
+    <!-- HÀM XỬ LÝ TẢI MÃ QR MỚI HOÀN TOÀN: KHÔNG DÙNG PROXY -->
+    <script>
+      window.taiMaQRMoi = async function() {
+        const qrImg = document.getElementById('qr-code');
+        if (!qrImg || !qrImg.src) {
+          alert("Lỗi: Không tìm thấy ảnh mã QR để tải!");
+          return;
+        }
+
+        const imgUrl = qrImg.src;
+        const btn = event.target || document.querySelector("button[onclick='window.taiMaQRMoi()']");
+        const originalText = btn ? btn.innerHTML : "⬇ TẢI MÃ QR VỀ MÁY";
+        
+        if (btn) btn.innerHTML = "⏳ Đang xử lý...";
+
+        try {
+          // Lấy trực tiếp ảnh, KHÔNG thông qua web trung gian nào để tránh treo mạng
+          const response = await fetch(imgUrl);
+          if (!response.ok) throw new Error("Fetch failed");
+          
+          const blob = await response.blob();
+          
+          // Ưu tiên 1: Dùng tính năng chia sẻ gốc trên Zalo/Messenger nếu đang dùng điện thoại
+          if (navigator.share && navigator.canShare && navigator.canShare({ files: [new File([blob], 'Ma_QR.png', { type: blob.type })] })) {
+             try {
+                const file = new File([blob], 'Ma_QR_Thanh_Toan.png', { type: blob.type });
+                await navigator.share({ files: [file], title: 'Mã QR Thanh Toán' });
+                if (btn) btn.innerHTML = originalText;
+                return;
+             } catch (e) {
+                console.log("Hủy chia sẻ");
+             }
+          }
+
+          // Ưu tiên 2: Tự động tải xuống máy tính bằng thẻ <a> nguyên thủy (nhẹ và cực kỳ ổn định)
+          const blobUrl = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.style.display = 'none';
+          link.href = blobUrl;
+          link.download = 'Ma_QR_Thanh_Toan.png';
+          
+          document.body.appendChild(link);
+          link.click();
+          
+          window.URL.revokeObjectURL(blobUrl);
+          document.body.removeChild(link);
+          
+          if (btn) btn.innerHTML = originalText;
+
+        } catch (error) {
+          console.error("Lỗi tự động tải:", error);
+          if (btn) btn.innerHTML = originalText;
+          
+          // Dự phòng: Mở liên kết trực tiếp sang tab mới
+          try {
+             const link = document.createElement('a');
+             link.href = imgUrl;
+             link.target = '_blank';
+             link.download = 'Ma_QR_Thanh_Toan.png';
+             document.body.appendChild(link);
+             link.click();
+             document.body.removeChild(link);
+          } catch (e) {
+             alert("Trình duyệt không hỗ trợ tải tự động. Thầy/phụ huynh vui lòng tự chụp màn hình lại mã QR nhé!");
+          }
+        }
+      };
+    </script>
+
     <!-- KHÓA PHÍM TẮT DÒ XÉT MÃ NGUỒN -->
     <script>
-      document.addEventListener('contextmenu', event => event.preventDefault());
+      // Đã thêm điều kiện: Cho phép bấm chuột phải/nhấn giữ trên điện thoại nến click vào ảnh QR (id: qr-code)
+      document.addEventListener('contextmenu', event => {
+        if (event.target.id !== 'qr-code') {
+          event.preventDefault();
+        }
+      });
+
       document.onkeydown = function(e) {
         if (e.keyCode == 123) return false;
         if (e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0)) return false;
