@@ -242,10 +242,85 @@
 
     <!-- NỐI VỚI FILE JS ĐÃ TÁCH -->
     <script type="module" src="./app.js"></script>
+    
+    <!-- THƯ VIỆN HỖ TRỢ TẢI FILE SIÊU MẠNH (FILESAVER.JS) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
-    <!-- KHÓA PHÍM TẮT DÒ XÉT MÃ NGUỒN -->
+    <!-- HÀM XỬ LÝ TẢI MÃ QR (FIX 100% CÁC TRÌNH DUYỆT VÀ ỨNG DỤNG ZALO/FB) -->
     <script>
-      document.addEventListener('contextmenu', event => event.preventDefault());
+      window.downloadQR = async function() {
+        const qrImg = document.getElementById('qr-code');
+        if (!qrImg || !qrImg.src) {
+          alert("Lỗi: Không tìm thấy ảnh mã QR để tải!");
+          return;
+        }
+
+        const imgUrl = qrImg.src;
+        const fileName = 'Ma_QR_Thanh_Toan_VatLi.png';
+        const btn = event.target || document.querySelector("button[onclick='window.downloadQR()']");
+        const originalText = btn ? btn.innerHTML : "⬇ TẢI MÃ QR VỀ MÁY";
+        
+        if (btn) btn.innerHTML = "⏳ Đang xử lý...";
+
+        try {
+          // Thử dùng fetch kết hợp proxy an toàn hơn
+          let response;
+          try {
+             response = await fetch(imgUrl, { mode: 'cors' });
+             if (!response.ok) throw new Error("CORS Direct Failed");
+          } catch (e) {
+             // Proxy thay thế ổn định hơn nếu bị chặn CORS
+             const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(imgUrl)}`;
+             response = await fetch(proxyUrl);
+          }
+
+          const blob = await response.blob();
+
+          // 1. Nếu là điện thoại di động và hỗ trợ chia sẻ gốc (Zalo, Messenger rất chuộng cái này)
+          if (navigator.share && navigator.canShare && navigator.canShare({ files: [new File([blob], fileName, { type: blob.type })] })) {
+             try {
+                const file = new File([blob], fileName, { type: blob.type });
+                await navigator.share({
+                   files: [file],
+                   title: 'Mã QR Thanh Toán',
+                   text: 'Mã QR thanh toán tiền học'
+                });
+                if (btn) btn.innerHTML = originalText;
+                return; // Chia sẻ thành công thì dừng
+             } catch (shareError) {
+                console.log("Người dùng hủy chia sẻ hoặc lỗi:", shareError);
+             }
+          }
+
+          // 2. Ép tải file bằng thư viện FileSaver.js (Rất mạnh trên Chrome, Safari, Android)
+          window.saveAs(blob, fileName);
+          if (btn) btn.innerHTML = originalText;
+
+        } catch (error) {
+          console.error("Lỗi tự động tải:", error);
+          
+          // 3. Phương án cuối cùng: Mở ảnh ra tab mới (dành cho trình duyệt siêu bảo mật)
+          try {
+             const newTab = window.open();
+             newTab.document.body.innerHTML = `<div style="text-align:center; padding: 20px; font-family:sans-serif;">
+                <h3>Nhấn giữ vào ảnh bên dưới để lưu</h3>
+                <img src="${imgUrl}" style="max-width:100%; border: 1px solid #ccc; padding: 10px; border-radius: 8px;">
+             </div>`;
+          } catch (e) {
+             alert("Trình duyệt của bạn khóa chức năng tải. \n\n👉 Vui lòng chụp màn hình hoặc NHẤN GIỮ ngón tay vào ảnh QR và chọn 'Lưu hình ảnh' nhé!");
+          }
+          if (btn) btn.innerHTML = originalText;
+        }
+      };
+    </script>
+    
+    <!-- KHÓA PHÍM TẮT TRÊN MÁY TÍNH (CHO PHÉP NHẤN GIỮ TRÊN ĐIỆN THOẠI) -->
+    <script>
+      // Chỉ khóa chuột phải trên máy tính, không khóa thao tác chạm (touch) trên điện thoại
+      if (!('ontouchstart' in window) && !navigator.maxTouchPoints) {
+          document.addEventListener('contextmenu', event => event.preventDefault());
+      }
+      
       document.onkeydown = function(e) {
         if (e.keyCode == 123) return false;
         if (e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0)) return false;
