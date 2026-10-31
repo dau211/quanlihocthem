@@ -64,7 +64,7 @@
                 <h6 class="fw-bold text-danger mb-3">QUÉT MÃ QR ĐỂ THANH TOÁN</h6>
                 <img id="qr-code" src="" alt="QR Code" class="img-fluid bg-white p-2 border rounded" style="max-width:300px;">
                 <p class="mt-3 text-muted small fst-italic">Hệ thống đã tự động điền Số tiền và Mã học sinh vào nội dung.</p>
-                <div class="mt-2"><button class="btn btn-primary fw-bold px-4 py-2 shadow" onclick="window.downloadQR()">⬇ TẢI MÃ QR VỀ MÁY</button></div>
+                <div class="mt-2"><button class="btn btn-primary fw-bold px-4 py-2 shadow" onclick="window.downloadQRImage()">⬇ TẢI MÃ QR VỀ MÁY</button></div>
               </div>
             </div>
           </div>
@@ -243,9 +243,109 @@
     <!-- NỐI VỚI FILE JS ĐÃ TÁCH -->
     <script type="module" src="./app.js"></script>
 
+    <!-- HÀM TẢI MÃ QR VỀ MÁY (ĐÃ SỬA LỖI KHÔNG TẢI ĐƯỢC) -->
+    <script>
+      window.downloadQRImage = async function () {
+        var img = document.getElementById('qr-code');
+        var src = img ? img.src : '';
+        if (!src || src === window.location.href) {
+          alert('Chưa có mã QR để tải. Vui lòng thử lại.');
+          return;
+        }
+        var fileName = 'QR-nop-tien-hoc.png';
+
+        // Thêm tham số để tránh dùng bản ảnh cache không có header CORS
+        function bust(u) { return u + (u.indexOf('?') > -1 ? '&' : '?') + '_t=' + Date.now(); }
+
+        function saveBlob(blob) {
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+        }
+
+        async function tryShare(blob) {
+          try {
+            var file = new File([blob], fileName, { type: blob.type || 'image/png' });
+            if (navigator.canShare && navigator.canShare({ files: [file] }) && /iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+              await navigator.share({ files: [file], title: 'Mã QR nộp tiền' });
+              return true;
+            }
+          } catch (e) { /* người dùng hủy hoặc không hỗ trợ */ }
+          return false;
+        }
+
+        // Phương án cuối: hiện ảnh QR to toàn màn hình để nhấn giữ lưu ảnh
+        function showOverlay() {
+          var old = document.getElementById('qrOverlay');
+          if (old) old.remove();
+          var box = document.createElement('div');
+          box.id = 'qrOverlay';
+          box.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:2000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;text-align:center;';
+          box.innerHTML =
+            '<p style="color:#fff;font-weight:bold;margin-bottom:12px;">Nhấn giữ vào ảnh QR rồi chọn "Lưu ảnh" / "Tải hình ảnh xuống"</p>' +
+            '<img src="' + src + '" alt="QR" style="max-width:100%;max-height:70vh;background:#fff;padding:8px;border-radius:8px;">' +
+            '<button class="btn btn-light fw-bold mt-3 px-4" id="qrOverlayClose">Đóng</button>';
+          document.body.appendChild(box);
+          document.getElementById('qrOverlayClose').onclick = function () { box.remove(); };
+        }
+
+        // Trình duyệt trong Zalo/Messenger/Facebook thường chặn tải file
+        if (/Zalo|FBAN|FBAV|FB_IAB|Messenger|Instagram/i.test(navigator.userAgent)) {
+          showOverlay();
+          return;
+        }
+
+        // Cách 1: tải ảnh về dạng blob (bỏ qua cache)
+        try {
+          var res = await fetch(bust(src), { mode: 'cors', cache: 'no-store' });
+          if (!res.ok) throw new Error('fetch failed');
+          var blob = await res.blob();
+          if (await tryShare(blob)) return;
+          saveBlob(blob);
+          return;
+        } catch (e) { /* thử cách tiếp theo */ }
+
+        // Cách 2: vẽ ảnh lên canvas rồi xuất ra file
+        try {
+          var tmp = new Image();
+          tmp.crossOrigin = 'anonymous';
+          await new Promise(function (ok, fail) {
+            tmp.onload = ok;
+            tmp.onerror = fail;
+            tmp.src = bust(src);
+          });
+          var canvas = document.createElement('canvas');
+          canvas.width = tmp.naturalWidth;
+          canvas.height = tmp.naturalHeight;
+          var ctx = canvas.getContext('2d');
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(tmp, 0, 0);
+          var blob2 = await new Promise(function (ok) { canvas.toBlob(ok, 'image/png'); });
+          if (blob2) {
+            if (await tryShare(blob2)) return;
+            saveBlob(blob2);
+            return;
+          }
+        } catch (e) { /* thử cách cuối */ }
+
+        // Cách 3: hiện ảnh to để nhấn giữ lưu
+        showOverlay();
+      };
+    </script>
+
     <!-- KHÓA PHÍM TẮT DÒ XÉT MÃ NGUỒN -->
     <script>
-      document.addEventListener('contextmenu', event => event.preventDefault());
+      document.addEventListener('contextmenu', event => {
+        // Cho phép nhấn giữ / chuột phải trên ảnh QR để lưu ảnh
+        if (event.target && (event.target.id === 'qr-code' || (event.target.closest && event.target.closest('#qrOverlay')))) return;
+        event.preventDefault();
+      });
       document.onkeydown = function(e) {
         if (e.keyCode == 123) return false;
         if (e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0)) return false;
