@@ -243,6 +243,45 @@
     <!-- NỐI VỚI FILE JS ĐÃ TÁCH -->
     <script type="module" src="./app.js"></script>
 
+    <!-- HÀM XỬ LÝ TẢI MÃ QR -->
+    <script>
+      window.downloadQR = async function() {
+        const qrImg = document.getElementById('qr-code');
+        if (!qrImg || !qrImg.src) {
+          alert("Lỗi: Không tìm thấy ảnh mã QR để tải!");
+          return;
+        }
+
+        try {
+          // Dùng Fetch API chuyển đổi ảnh thành Blob để ép tải xuống thay vì mở tab mới
+          const response = await fetch(qrImg.src);
+          const blob = await response.blob();
+          const blobUrl = window.URL.createObjectURL(blob);
+          
+          const link = document.createElement('a');
+          link.style.display = 'none';
+          link.href = blobUrl;
+          link.download = 'Ma_QR_Thanh_Toan.png'; // Tên file khi tải về
+          
+          document.body.appendChild(link);
+          link.click();
+          
+          // Dọn dẹp sau khi tải
+          window.URL.revokeObjectURL(blobUrl);
+          document.body.removeChild(link);
+        } catch (error) {
+          console.error("Lỗi khi fetch ảnh, thử dùng phương pháp cơ bản:", error);
+          // Phương án dự phòng nếu fetch bị lỗi CORS
+          const link = document.createElement('a');
+          link.href = qrImg.src;
+          link.download = 'Ma_QR_Thanh_Toan.png';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+      };
+    </script>
+
     <!-- KHÓA PHÍM TẮT DÒ XÉT MÃ NGUỒN -->
     <script>
       document.addEventListener('contextmenu', event => event.preventDefault());
