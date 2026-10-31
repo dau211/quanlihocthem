@@ -35,7 +35,7 @@
     <div class="main-container">
       
       <!-- TRANG CHỦ PHỤ HUYNH -->
-      <div id="listView">
+    <div id="listView">
         <div class="card mt-2">
           <div class="card-body p-3 p-md-4">
             <h4 class="card-title text-center text-primary fw-bold mb-2">DANH SÁCH NỘP TIỀN <span id="titleLop" class="text-danger"></span></h4>
@@ -242,66 +242,6 @@
 
     <!-- NỐI VỚI FILE JS ĐÃ TÁCH -->
     <script type="module" src="./app.js"></script>
-
-    <!-- HÀM XỬ LÝ TẢI MÃ QR (ĐÃ FIX LỖI CORS VÀ ZALO) -->
-    <script>
-      window.downloadQR = async function() {
-        const qrImg = document.getElementById('qr-code');
-        if (!qrImg || !qrImg.src) {
-          alert("Lỗi: Không tìm thấy ảnh mã QR để tải!");
-          return;
-        }
-
-        const imgUrl = qrImg.src;
-
-        try {
-          // Đổi nút thành trạng thái đang tải để người dùng biết
-          const btn = event.target || document.querySelector("button[onclick='window.downloadQR()']");
-          const originalText = btn ? btn.innerHTML : "⬇ TẢI MÃ QR VỀ MÁY";
-          if (btn) btn.innerHTML = "⏳ Đang xử lý...";
-
-          let response;
-          try {
-            // Bước 1: Thử tải trực tiếp ảnh (Sẽ thành công trên Chrome/Safari máy tính)
-            response = await fetch(imgUrl, { mode: 'cors', cache: 'no-cache' });
-            if (!response.ok) throw new Error("CORS Direct Failed");
-          } catch (e) {
-            // Bước 2: Nếu bị trình duyệt chặn CORS, dùng Proxy trung gian để hóa giải
-            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(imgUrl)}`;
-            response = await fetch(proxyUrl);
-          }
-
-          const blob = await response.blob();
-          const blobUrl = window.URL.createObjectURL(blob);
-          
-          // Tạo thẻ a ảo để ép tải file
-          const link = document.createElement('a');
-          link.style.display = 'none';
-          link.href = blobUrl;
-          link.download = 'Ma_QR_Thanh_Toan_VatLi.png'; // Tên file tải về
-          
-          document.body.appendChild(link);
-          link.click();
-          
-          // Dọn dẹp bộ nhớ
-          window.URL.revokeObjectURL(blobUrl);
-          document.body.removeChild(link);
-          
-          // Trả lại tên nút
-          if (btn) btn.innerHTML = originalText;
-
-        } catch (error) {
-          console.error("Lỗi tải ảnh tự động:", error);
-          
-          // Bước 3: Nếu đang dùng trình duyệt nội bộ của Zalo/Facebook khóa hoàn toàn chức năng tải
-          alert("Trình duyệt của bạn (Zalo/Facebook) chặn tải tự động.\n\n👉 Vui lòng NHẤN GIỮ ngón tay vào ảnh QR và chọn 'Lưu hình ảnh' hoặc 'Tải ảnh xuống' bạn nhé!");
-          
-          // Trả lại tên nút nếu lỗi
-          const btn = event.target || document.querySelector("button[onclick='window.downloadQR()']");
-          if (btn) btn.innerHTML = "⬇ TẢI MÃ QR VỀ MÁY";
-        }
-      };
-    </script>
 
     <!-- KHÓA PHÍM TẮT DÒ XÉT MÃ NGUỒN -->
     <script>
